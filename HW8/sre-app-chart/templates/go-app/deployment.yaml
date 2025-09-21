@@ -1,0 +1,60 @@
+{{- if .Values.goApp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sre-app.goApp.name" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "sre-app.goApp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.goApp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sre-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: go-app
+  template:
+    metadata:
+      labels:
+        {{- include "sre-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: go-app
+      {{- with .Values.goApp.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sre-app.goApp.name" . }}
+      containers:
+      - name: go-app
+        image: "{{ .Values.goApp.image.repository }}:{{ .Values.goApp.image.tag }}"
+        imagePullPolicy: {{ .Values.goApp.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.goApp.service.targetPort }}
+          name: http
+        env:
+        {{- range $key, $value := .Values.goApp.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.goApp.resources | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.goApp.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.goApp.readinessProbe | nindent 10 }}
+      {{- with .Values.goApp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.goApp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.goApp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,66 @@
+{{/*
+Common labels
+*/}}
+{{- define "sre-app.labels" -}}
+helm.sh/chart: {{ include "sre-app.chart" . }}
+{{ include "sre-app.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "sre-app.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "sre-app.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "sre-app.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common name definitions
+*/}}
+{{- define "sre-app.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "sre-app.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/* Flask app specific helpers */}}
+{{- define "sre-app.flaskApp.name" -}}
+{{- printf "%s-flask" (include "sre-app.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "sre-app.flaskApp.labels" -}}
+{{ include "sre-app.labels" . }}
+app.kubernetes.io/component: flask-app
+{{- end }}
+
+{{/* Go app specific helpers */}}
+{{- define "sre-app.goApp.name" -}}
+{{- printf "%s-go" (include "sre-app.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "sre-app.goApp.labels" -}}
+{{ include "sre-app.labels" . }}
+app.kubernetes.io/component: go-app
+{{- end }}

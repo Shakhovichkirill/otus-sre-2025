@@ -1,0 +1,23 @@
+{{- if .Values.flaskApp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sre-app.flaskApp.name" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "sre-app.flaskApp.labels" . | nindent 4 }}
+  {{- with .Values.flaskApp.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.flaskApp.service.type }}
+  ports:
+    - port: {{ .Values.flaskApp.service.port }}
+      targetPort: {{ .Values.flaskApp.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "sre-app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: flask-app
+{{- end }}
