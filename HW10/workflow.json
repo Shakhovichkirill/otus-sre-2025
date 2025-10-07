@@ -1,0 +1,197 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -64
+      ],
+      "id": "44078620-0534-48c2-bc12-bff793c124c0",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "http://xmlcalendar.ru/data/ru/2022/calendar.csv",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        -144
+      ],
+      "id": "202068c6-8c3d-41e8-b0f8-418f4e309461",
+      "name": "HTTP Request (CSV)"
+    },
+    {
+      "parameters": {
+        "url": "http://xmlcalendar.ru/data/ru/2022/calendar.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        64
+      ],
+      "id": "e0b8843c-c846-4cfd-be26-60543b80d9c4",
+      "name": "HTTP Request JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "// JavaScript нода для парсинга CSV\nconst response = $input.first().json;\nconst csvText = response.data;\n\n// Разбиваем на строки\nconst lines = csvText.split('\\n');\n\n// Функция для парсинга CSV с учетом кавычек\nfunction parseCSVLine(line) {\n    const result = [];\n    let current = '';\n    let inQuotes = false;\n    \n    for (let i = 0; i < line.length; i++) {\n        const char = line[i];\n        \n        if (char === '\"') {\n            if (inQuotes && line[i + 1] === '\"') {\n                current += '\"';\n                i++;\n            } else {\n                inQuotes = !inQuotes;\n            }\n        } else if (char === ',' && !inQuotes) {\n            result.push(current);\n            current = '';\n        } else {\n            current += char;\n        }\n    }\n    \n    result.push(current);\n    return result;\n}\n\n// Парсим данные\nconst header = parseCSVLine(lines[0]);\nconst data = parseCSVLine(lines[1]);\n\nconsole.log('Parsed data:', data);\n\nreturn [{\n    json: {\n        parsed_data: data,\n        status: 'parsed'\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -144
+      ],
+      "id": "054466df-e392-40e8-b573-c6deaaee38fd",
+      "name": "Prepare JSON"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "def main():\n    try:\n        input_data = items[0]['json']\n        data_values = input_data.get('parsed_data', [])\n        \n        result = {\n            \"year\": 2022,\n            \"months\": [{\"month\": i+1, \"days\": data_values[i+1]} for i in range(12)],\n            \"transitions\": [\n                {\"from\": \"03.05\", \"to\": \"03.07\"},\n                {\"from\": \"05.01\", \"to\": \"05.02\"},\n                {\"from\": \"01.01\", \"to\": \"05.03\"},\n                {\"from\": \"01.02\", \"to\": \"05.10\"},\n                {\"from\": \"06.12\", \"to\": \"06.13\"}\n            ],\n            \"statistic\": {\n                \"workdays\": int(data_values[13]),\n                \"holidays\": int(data_values[14]),\n                \"hours40\": int(float(data_values[15])),\n                \"hours36\": float(data_values[16]),\n                \"hours24\": float(data_values[17])\n            }\n        }\n        \n        return [{'json': result}]\n        \n    except Exception as e:\n        return [{'json': {'error': str(e), 'status': 'error'}}]\n\nreturn main()"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        -144
+      ],
+      "id": "6a945c6c-aa90-4adf-a8f9-cbd8223384fc",
+      "name": "Parse JSON"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "def main():\n    try:\n        print(\"=== JSON COMPARISON ===\")\n        print(\"Items received:\", len(items))\n        \n        if len(items) < 2:\n            return [{\n                'json': {\n                    'status': 'ERROR',\n                    'message': f'Need 2 nodes connected. Got: {len(items)}',\n                    'icon': '⚠️'\n                }\n            }]\n        \n        data1 = items[0]['json']\n        data2 = items[1]['json']\n        \n        print(\"Data1 year:\", data1.get('year'))\n        print(\"Data2 year:\", data2.get('year'))\n        \n        differences = []\n        \n        if data1.get('year') != data2.get('year'):\n            differences.append(f\"Year: {data1.get('year')} != {data2.get('year')}\")\n        \n        months1 = data1.get('months', [])\n        months2 = data2.get('months', [])\n        \n        if len(months1) != len(months2):\n            differences.append(f\"Months count: {len(months1)} != {len(months2)}\")\n        else:\n            for i in range(len(months1)):\n                if months1[i].get('days') != months2[i].get('days'):\n                    differences.append(f\"Month {i+1} days differ\")\n        \n        stats1 = data1.get('statistic', {})\n        stats2 = data2.get('statistic', {})\n        \n        for key in ['workdays', 'holidays', 'hours40', 'hours36', 'hours24']:\n            if stats1.get(key) != stats2.get(key):\n                differences.append(f\"Statistic.{key}: {stats1.get(key)} != {stats2.get(key)}\")\n        \n        if not differences:\n            result = {\n                'status': 'IDENTICAL',\n                'message': '✅ Data is identical!',\n                'icon': '✅',\n                'color': 'green'\n            }\n        else:\n            result = {\n                'status': 'DIFFERENT',\n                'message': f'❌ Found {len(differences)} differences',\n                'icon': '❌',\n                'color': 'red',\n                'differences_count': len(differences),\n                'differences': differences\n            }\n        \n        return [{'json': result}]\n        \n    except Exception as e:\n        return [{\n            'json': {\n                'status': 'ERROR',\n                'message': str(e),\n                'icon': '⚠️'\n            }\n        }]\n\nreturn main()"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -48
+      ],
+      "id": "0f385930-0648-4fcb-bd70-8ea05c304e53",
+      "name": "Compare information"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        432,
+        -48
+      ],
+      "id": "bbd27545-a674-40c1-a11e-60dcdff0ec17",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request JSON",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request (CSV)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request (CSV)": {
+      "main": [
+        [
+          {
+            "node": "Prepare JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request JSON": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse JSON": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare information": {
+      "main": [
+        []
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Compare information",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9fca35ff-b2ea-4dcf-ae48-d2e8021ced91",
+  "meta": {
+    "instanceId": "a94821416b0f5e0441f51c1de1dc55e95f9a6a5b27afa5b940382cbc25f11b60"
+  },
+  "id": "UyR73cLrkG68l6le",
+  "tags": []
+}
