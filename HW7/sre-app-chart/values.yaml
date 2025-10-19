@@ -1,0 +1,129 @@
+# Global values
+global:
+  namespace: sre-app
+  imagePullSecrets: []
+
+# Flask application configuration
+flaskApp:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: docker.io/kirillshakh/sre-app-flask
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+    annotations: {}
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+  startupProbe:
+    path: /health
+    port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 30
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  env:
+    POD_NAMESPACE: "{{ .Release.Namespace }}"
+    POD_NAME: ""
+
+# Go application configuration
+goApp:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: docker.io/kirillshakh/sre-app-go
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+    annotations: {}
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  startupProbe:
+    path: /healthz
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 30
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  env:
+    PORT: "8080"
+    APP_USER: "admin"
+    APP_PASSWORD: "password123"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  hosts:
+    - host: sre-app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+        - path: /admin
+          pathType: Prefix
+        - path: /metrics
+          pathType: Prefix
+  tls: []
+
+# ServiceMonitor for Prometheus (if needed)
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
