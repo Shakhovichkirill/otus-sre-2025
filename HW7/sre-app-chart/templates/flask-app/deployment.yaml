@@ -1,0 +1,79 @@
+{{- if .Values.flaskApp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sre-app.flaskApp.name" . }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "sre-app.flaskApp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.flaskApp.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      {{- include "sre-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: flask-app
+  template:
+    metadata:
+      labels:
+        {{- include "sre-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: flask-app
+      {{- with .Values.flaskApp.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "sre-app.flaskApp.name" . }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                  - flask-app
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: flask-app
+        image: "{{ .Values.flaskApp.image.repository }}:{{ .Values.flaskApp.image.tag }}"
+        imagePullPolicy: {{ .Values.flaskApp.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.flaskApp.service.targetPort }}
+          name: http
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        {{- range $key, $value := .Values.flaskApp.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.flaskApp.resources | nindent 10 }}
+        livenessProbe:
+          {{- toYaml .Values.flaskApp.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.flaskApp.readinessProbe | nindent 10 }}
+        startupProbe:
+          {{- toYaml .Values.flaskApp.startupProbe | nindent 10 }}
+      {{- with .Values.flaskApp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.flaskApp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
